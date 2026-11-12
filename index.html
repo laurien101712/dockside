@@ -61,12 +61,19 @@
 // The two addresses the page talks to
 const CSV_URL   = "https://bdaib-hub.pages.dev/data/dockside/sessions.csv";
 const BRAIN_URL = "https://bdaib-hub.pages.dev/brain/chat";
+const WEATHER_URL = "https://api.open-meteo.com/v1/forecast?latitude=53.3441&longitude=-6.2386&current=temperature_2m,wind_speed_10m,wind_gusts_10m,precipitation&timezone=Europe%2FDublin";
 
 // Standing instructions for the brain
 const SYSTEM = "You are Ask Dockside, the customer assistant for Dockside Paddle Co. " +
-  "Answer only from today's sessions data provided. Never guess or use outside knowledge. " +
+  "Answer only from today's sessions data and the current weather provided. Never guess or use outside knowledge. " +
   "If the answer is not in the data, say so. Quote exact prices in euro and places left. " +
-  "Be friendly, witty, and keep answers short.";
+  "Be friendly, witty, and keep answers short. " +
+  "WIND RULE: a session goes ahead only if the current wind_speed_10m is at or below that session's max_wind_kmh. " +
+  "Use wind_speed_10m only, never wind_gusts_10m. Always state both numbers (live wind and the session's limit). " +
+  "TEMPERATURE RULE: if the current temperature_2m is below 5°C, all sessions are cancelled except sauna sessions. " +
+  "Always state the live temperature when this rule decides the answer. " +
+  "TIMING RULE: the weather is current conditions, not a forecast. If a session starts more than 1 hour after the current time given, " +
+  "say that the answer is based on conditions right now and may change if the weather changes.";
 
 // Grab the parts of the page we need to work with
 const chat    = document.getElementById("chat");
@@ -102,10 +109,15 @@ form.addEventListener("submit", async (event) => {
   const thinking = addBubble("Thinking...", "bot");
 
   try {
-    // 1. Fetch the sessions fresh, skipping any cached copy
-    const csvRes = await fetch(CSV_URL, { cache: "no-store" });
+    // 1. Fetch the sessions and the weather fresh, both at once
+    const [csvRes, weatherRes] = await Promise.all([
+      fetch(CSV_URL, { cache: "no-store" }),
+      fetch(WEATHER_URL, { cache: "no-store" })
+    ]);
     if (!csvRes.ok) throw new Error("Could not load sessions (HTTP " + csvRes.status + ")");
+    if (!weatherRes.ok) throw new Error("Could not load weather (HTTP " + weatherRes.status + "). Try again in a moment.");
     const csv = await csvRes.text();
+    const weather = (await weatherRes.json()).current;
     const fetchedAt = new Date().toLocaleTimeString("en-IE", { hour12: false });
 
     // 2. Send rules + data + question to the brain
@@ -116,7 +128,10 @@ form.addEventListener("submit", async (event) => {
         system: SYSTEM,
         messages: [{
           role: "user",
-          content: "Today's sessions (CSV):\n" + csv + "\n\nCustomer question: " + question
+          content: "Current time in Dublin: " + fetchedAt +
+                   "\n\nToday's sessions (CSV):\n" + csv +
+                   "\n\nCurrent weather at the dock (JSON):\n" + JSON.stringify(weather) +
+                   "\n\nCustomer question: " + question
         }]
       })
     });
@@ -125,7 +140,9 @@ form.addEventListener("submit", async (event) => {
 
     // 3. Show the answer with the fetch time
     thinking.remove();
-    addBubble(data.reply, "bot", "Data fetched live at " + fetchedAt);
+    addBubble(data.reply, "bot",
+      "Data fetched live at " + fetchedAt +
+      " · Wind " + weather.wind_speed_10m + " km/h · " + weather.temperature_2m + "°C");
 
   } catch (err) {
     thinking.remove();
