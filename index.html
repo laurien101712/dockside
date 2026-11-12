@@ -1,1 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ask Dockside</title>
+<link href="https://fonts.googleapis.com/css2?family=Bungee&family=Fredoka:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root { --sea:#00c2d1; --sun:#ffd23f; --coral:#ff5d73; --ink:#1b1b3a; --foam:#fffdf5; }
+  * { box-sizing:border-box; }
+  body {
+    margin:0; font-family:'Fredoka',sans-serif; color:var(--ink);
+    background:repeating-linear-gradient(135deg, var(--sea) 0 40px, #14d4e0 40px 80px);
+    min-height:100vh; display:flex; justify-content:center; padding:16px;
+  }
+  .app {
+    width:100%; max-width:520px; height:calc(100vh - 32px);
+    display:flex; flex-direction:column; background:var(--foam);
+    border:4px solid var(--ink); border-radius:24px; box-shadow:8px 8px 0 var(--ink); overflow:hidden;
+  }
+  header { background:var(--sun); border-bottom:4px solid var(--ink); padding:14px 16px; text-align:center; }
+  header h1 { font-family:'Bungee',cursive; margin:0; font-size:1.7rem; color:var(--coral); text-shadow:3px 3px 0 var(--ink); }
+  header p { margin:4px 0 0; font-weight:600; }
+  #chat { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:12px; }
+  .bubble {
+    max-width:85%; padding:10px 14px; line-height:1.4; white-space:pre-wrap;
+    border:3px solid var(--ink); border-radius:18px; box-shadow:4px 4px 0 var(--ink);
+  }
+  .bot   { align-self:flex-start; background:#fff; border-bottom-left-radius:4px; }
+  .user  { align-self:flex-end; background:var(--coral); color:#fff; border-bottom-right-radius:4px; }
+  .error { align-self:flex-start; background:#ffe0e0; }
+  .meta  { display:block; margin-top:6px; font-size:.75rem; opacity:.7; }
+  form { display:flex; gap:8px; padding:12px; border-top:4px solid var(--ink); background:var(--sun); }
+  input { flex:1; font:inherit; padding:10px 14px; border:3px solid var(--ink); border-radius:999px; outline:none; }
+  button {
+    font-family:'Bungee',cursive; background:var(--sea); border:3px solid var(--ink);
+    border-radius:999px; padding:0 18px; box-shadow:3px 3px 0 var(--ink); cursor:pointer;
+  }
+  button:active { transform:translate(3px,3px); box-shadow:none; }
+  button:disabled { opacity:.5; cursor:wait; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>🏄 Ask Dockside</h1>
+    <p>Prices, places &amp; paddles at Grand Canal Dock</p>
+  </header>
 
+  <div id="chat">
+    <div class="bubble bot">Ahoy! Ask me about today's sessions: prices, places left, start times.</div>
+  </div>
+
+  <form id="form">
+    <input id="question" placeholder="Ask about a session..." autocomplete="off" required>
+    <button id="send" type="submit">Send</button>
+  </form>
+</div>
+
+<script>
+// The two addresses the page talks to
+const CSV_URL   = "https://bdaib-hub.pages.dev/data/dockside/sessions.csv";
+const BRAIN_URL = "https://bdaib-hub.pages.dev/brain/chat";
+
+// Standing instructions for the brain
+const SYSTEM = "You are Ask Dockside, the customer assistant for Dockside Paddle Co. " +
+  "Answer only from today's sessions data provided. Never guess or use outside knowledge. " +
+  "If the answer is not in the data, say so. Quote exact prices in euro and places left. " +
+  "Be friendly, witty, and keep answers short.";
+
+// Grab the parts of the page we need to work with
+const chat    = document.getElementById("chat");
+const form    = document.getElementById("form");
+const input   = document.getElementById("question");
+const sendBtn = document.getElementById("send");
+
+// Adds one chat bubble; "meta" is the optional small line underneath
+function addBubble(text, type, meta) {
+  const div = document.createElement("div");
+  div.className = "bubble " + type;
+  div.textContent = text;
+  if (meta) {
+    const small = document.createElement("span");
+    small.className = "meta";
+    small.textContent = meta;
+    div.appendChild(small);
+  }
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+  return div;
+}
+
+// Runs every time Send is clicked or Enter is pressed
+form.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const question = input.value.trim();
+  if (!question) return;
+
+  addBubble(question, "user");
+  input.value = "";
+  sendBtn.disabled = true;
+  const thinking = addBubble("Thinking...", "bot");
+
+  try {
+    // 1. Fetch the sessions fresh, skipping any cached copy
+    const csvRes = await fetch(CSV_URL, { cache: "no-store" });
+    if (!csvRes.ok) throw new Error("Could not load sessions (HTTP " + csvRes.status + ")");
+    const csv = await csvRes.text();
+    const fetchedAt = new Date().toLocaleTimeString("en-IE", { hour12: false });
+
+    // 2. Send rules + data + question to the brain
+    const brainRes = await fetch(BRAIN_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        system: SYSTEM,
+        messages: [{
+          role: "user",
+          content: "Today's sessions (CSV):\n" + csv + "\n\nCustomer question: " + question
+        }]
+      })
+    });
+    const data = await brainRes.json().catch(() => ({}));
+    if (!brainRes.ok) throw new Error(data.error || "Brain error (HTTP " + brainRes.status + ")");
+
+    // 3. Show the answer with the fetch time
+    thinking.remove();
+    addBubble(data.reply, "bot", "Data fetched live at " + fetchedAt);
+
+  } catch (err) {
+    thinking.remove();
+    addBubble("Oops: " + err.message, "error");
+  } finally {
+    sendBtn.disabled = false;
+    input.focus();
+  }
+});
+</script>
+</body>
+</html>
