@@ -7,46 +7,116 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌊</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Fredoka:wght@400;600&display=swap" rel="stylesheet">
 <style>
-  :root { --sea:#00c2d1; --sun:#ffd23f; --coral:#ff5d73; --ink:#1b1b3a; --foam:#fffdf5; }
+  :root { --sea:#00c2d1; --sun:#ffd23f; --coral:#ff5d73; --ink:#1b1b3a; --foam:#fffdf5; --kelp:#2ec27e; --fog:#c9c9d6; }
   * { box-sizing:border-box; }
   body {
     margin:0; font-family:'Fredoka',sans-serif; color:var(--ink);
     background:repeating-linear-gradient(135deg, var(--sea) 0 40px, #14d4e0 40px 80px);
     min-height:100vh; display:flex; justify-content:center; padding:16px;
   }
+
+  /* ---------- Animated waves along the bottom of the screen ---------- */
+  .waves { position:fixed; left:0; right:0; bottom:0; height:90px; pointer-events:none; z-index:0; }
+  .wave {
+    position:absolute; inset:0; background-repeat:repeat-x; background-size:400px 90px;
+    background-image:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 90'><path d='M0 45 Q50 15 100 45 T200 45 T300 45 T400 45 V90 H0Z' fill='%23ffffff'/></svg>");
+    animation:drift 12s linear infinite;
+  }
+  .wave.back { opacity:.45; bottom:14px; animation-duration:20s; animation-direction:reverse; }
+  @keyframes drift { to { background-position-x:400px; } }
+
+  /* ---------- The main card ---------- */
   .app {
-    width:100%; max-width:520px; height:calc(100vh - 32px);
+    position:relative; z-index:1;
+    width:100%; max-width:560px; height:calc(100vh - 32px);
     display:flex; flex-direction:column; background:var(--foam);
     border:4px solid var(--ink); border-radius:24px; box-shadow:8px 8px 0 var(--ink); overflow:hidden;
   }
-  header { background:var(--sun); border-bottom:4px solid var(--ink); padding:14px 16px; text-align:center; }
-  header h1 { font-family:'Bungee',cursive; margin:0; font-size:1.7rem; color:var(--coral); text-shadow:3px 3px 0 var(--ink); }
-  header p { margin:4px 0 0; font-weight:600; }
+  header { background:var(--sun); border-bottom:4px solid var(--ink); padding:12px 16px; text-align:center; }
+  header h1 { font-family:'Bungee',cursive; margin:0; font-size:1.6rem; color:var(--coral); text-shadow:3px 3px 0 var(--ink); }
+  header p { margin:2px 0 0; font-weight:600; font-size:.9rem; }
+
+  /* ---------- Live conditions strip ---------- */
+  .strip {
+    display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:8px 12px;
+    background:var(--ink); color:#fff; font-weight:600; font-size:.85rem;
+  }
+  .chip { background:rgba(255,255,255,.12); border-radius:999px; padding:3px 10px; }
+  .badge { margin-left:auto; border:2px solid #fff; border-radius:999px; padding:2px 10px; color:var(--ink); }
+  .badge.green { background:var(--kelp); }
+  .badge.amber { background:var(--sun); }
+  .badge.red   { background:var(--coral); color:#fff; }
+  .strip .stamp-time { width:100%; font-size:.7rem; opacity:.65; font-weight:400; }
+
+  /* ---------- Today's sessions board ---------- */
+  .board-title { font-family:'Bungee',cursive; font-size:.85rem; margin:10px 14px 0; }
+  .board { display:flex; gap:10px; overflow-x:auto; padding:8px 14px 12px; border-bottom:4px solid var(--ink); flex-shrink:0; }
+  .card {
+    position:relative; flex:0 0 150px; background:#fff; cursor:pointer;
+    border:3px solid var(--ink); border-radius:16px; box-shadow:4px 4px 0 var(--ink);
+    padding:8px 10px; transition:transform .15s; overflow:hidden;
+  }
+  .card:hover { transform:rotate(-1.5deg) translateY(-3px); }
+  .card-top { display:flex; justify-content:space-between; align-items:center; }
+  .emoji { font-size:1.6rem; }
+  .time { font-family:'Bungee',cursive; font-size:.85rem; }
+  .name { font-weight:600; line-height:1.2; margin:4px 0; min-height:2.4em; }
+  .price { font-family:'Bungee',cursive; color:var(--coral); }
+  .price.desk { font-family:'Fredoka',sans-serif; font-size:.8rem; color:var(--ink); }
+  .tags { display:flex; flex-wrap:wrap; gap:4px; margin-top:6px; font-size:.7rem; font-weight:600; }
+  .tag { border:2px solid var(--ink); border-radius:999px; padding:1px 7px; background:var(--foam); }
+  .tag.hot  { background:var(--sun); }
+  .tag.on   { background:var(--kelp); }
+  .tag.live { background:var(--sun); }
+  .tag.off  { background:var(--coral); color:#fff; }
+  .card.done { opacity:.45; }
+  .stamp {
+    position:absolute; top:38%; left:-10%; width:120%; text-align:center; transform:rotate(-14deg);
+    font-family:'Bungee',cursive; color:#fff; background:var(--coral);
+    border-top:3px solid var(--ink); border-bottom:3px solid var(--ink); padding:2px 0;
+  }
+
+  /* ---------- Chat ---------- */
   #chat { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:12px; }
   .bubble {
     max-width:85%; padding:10px 14px; line-height:1.4; white-space:pre-wrap;
     border:3px solid var(--ink); border-radius:18px; box-shadow:4px 4px 0 var(--ink);
+    animation:pop .25s ease-out;
   }
+  @keyframes pop { from { transform:scale(.6); opacity:0; } }
   .bot   { align-self:flex-start; background:#fff; border-bottom-left-radius:4px; }
   .user  { align-self:flex-end; background:var(--coral); color:#fff; border-bottom-right-radius:4px; }
   .error { align-self:flex-start; background:#ffe0e0; }
   .meta  { display:block; margin-top:6px; font-size:.75rem; opacity:.7; }
   form { display:flex; gap:8px; padding:12px; border-top:4px solid var(--ink); background:var(--sun); }
-  input { flex:1; font:inherit; padding:10px 14px; border:3px solid var(--ink); border-radius:999px; outline:none; }
+  input { flex:1; font:inherit; padding:10px 14px; border:3px solid var(--ink); border-radius:999px; outline:none; min-width:0; }
   button {
     font-family:'Bungee',cursive; background:var(--sea); border:3px solid var(--ink);
     border-radius:999px; padding:0 18px; box-shadow:3px 3px 0 var(--ink); cursor:pointer;
   }
   button:active { transform:translate(3px,3px); box-shadow:none; }
   button:disabled { opacity:.5; cursor:wait; }
+
+  /* Respect people who switch off motion in their device settings */
+  @media (prefers-reduced-motion: reduce) {
+    .wave, .bubble { animation:none; }
+    .card:hover { transform:none; }
+  }
 </style>
 </head>
 <body>
+<div class="waves"><div class="wave back"></div><div class="wave"></div></div>
+
 <div class="app">
   <header>
     <h1>🏄 Ask Dockside</h1>
     <p>Prices, places &amp; paddles at Grand Canal Dock</p>
   </header>
+
+  <div class="strip" id="strip"><span class="chip">Checking the water...</span></div>
+
+  <div class="board-title">Today on the water · tap a card to ask</div>
+  <div class="board" id="board"></div>
 
   <div id="chat">
     <div class="bubble bot">Ahoy! Ask me about today's sessions: prices, places left, start times.</div>
@@ -59,9 +129,9 @@
 </div>
 
 <script>
-// The two addresses the page talks to
-const CSV_URL   = "https://bdaib-hub.pages.dev/data/dockside/sessions.csv";
-const BRAIN_URL = "https://bdaib-hub.pages.dev/brain/chat";
+// The three addresses the page talks to
+const CSV_URL     = "https://bdaib-hub.pages.dev/data/dockside/sessions.csv";
+const BRAIN_URL   = "https://bdaib-hub.pages.dev/brain/chat";
 const WEATHER_URL = "https://api.open-meteo.com/v1/forecast?latitude=53.3441&longitude=-6.2386&current=temperature_2m,wind_speed_10m,wind_gusts_10m,precipitation&timezone=Europe%2FDublin";
 
 // Standing instructions for the brain
@@ -87,8 +157,10 @@ const chat    = document.getElementById("chat");
 const form    = document.getElementById("form");
 const input   = document.getElementById("question");
 const sendBtn = document.getElementById("send");
+const strip   = document.getElementById("strip");
+const board   = document.getElementById("board");
 
-// Checks every price before the brain sees it.
+// Checks every price before the brain (or the board) sees it.
 // Any price below 5 or above 200 euro is replaced with CONFIRM_AT_DESK.
 const PRICE_MIN = 5;
 const PRICE_MAX = 200;
@@ -96,7 +168,7 @@ function checkPrices(csv) {
   const lines = csv.trim().split("\n");
   const priceCol = lines[0].split(",").indexOf("price_eur");
   return lines.map((line, i) => {
-    if (i === 0) return line;                 // leave the header row alone
+    if (i === 0) return line;
     const cells = line.split(",");
     const price = parseFloat(cells[priceCol]);
     if (isNaN(price) || price < PRICE_MIN || price > PRICE_MAX) {
@@ -105,6 +177,114 @@ function checkPrices(csv) {
     return cells.join(",");
   }).join("\n");
 }
+
+// Turns the CSV text into a list of objects, e.g. { id:"DS01", session:"Sunrise Paddleboard", ... }
+function parseCsv(csv) {
+  const lines = csv.trim().split("\n");
+  const head = lines[0].split(",");
+  return lines.slice(1).map(line => {
+    const cells = line.split(",");
+    const row = {};
+    head.forEach((name, i) => row[name] = cells[i]);
+    return row;
+  });
+}
+
+// Makes text safe to put inside HTML
+function esc(text) {
+  return String(text ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+}
+
+// An emoji for each activity type
+const EMOJI = { "Paddleboard":"🏄", "Kayak":"🛶", "Swim":"🏊", "Dragon boat":"🐉", "Wakeboard":"🤸", "Sauna":"🧖" };
+
+// Works out one session's status, using the same rules the brain gets
+function sessionStatus(s, weather, nowMin) {
+  const [h, m] = s.start_time.split(":").map(Number);
+  const start = h * 60 + m;
+  const end = start + Number(s.duration_min);
+  if (nowMin >= end) return { label:"Finished", cls:"done" };
+  const isSauna = /sauna/i.test(s.activity);
+  if (!isSauna && weather.temperature_2m < 5) return { label:"Too cold", cls:"off" };
+  if (weather.wind_speed_10m > Number(s.max_wind_kmh)) return { label:"Too windy", cls:"off" };
+  if (nowMin >= start) return { label:"On now", cls:"live" };
+  return { label:"Good to go", cls:"on" };
+}
+
+// Draws the conditions strip and the session cards
+function render(rows, weather, fetchedAt) {
+  const now = new Date();
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  rows.sort((a, b) => a.start_time.localeCompare(b.start_time));
+  const statuses = rows.map(s => sessionStatus(s, weather, nowMin));
+
+  // Strip: how many of the remaining sessions can run
+  const remaining = statuses.filter(st => st.cls !== "done");
+  const running = remaining.filter(st => st.cls === "on" || st.cls === "live").length;
+  let badge;
+  if (remaining.length === 0)            badge = { cls:"amber", text:"🌙 That's a wrap for today" };
+  else if (running === remaining.length) badge = { cls:"green", text:"🟢 All " + running + " sessions left are on" };
+  else if (running > 0)                  badge = { cls:"amber", text:"🟡 " + running + " of " + remaining.length + " sessions left are on" };
+  else                                   badge = { cls:"red",   text:"🔴 Nothing on the water right now" };
+
+  strip.innerHTML =
+    '<span class="chip">🌬️ ' + esc(weather.wind_speed_10m) + ' km/h</span>' +
+    '<span class="chip">🌡️ ' + esc(weather.temperature_2m) + '°C</span>' +
+    '<span class="chip">🌧️ ' + esc(weather.precipitation) + ' mm</span>' +
+    '<span class="badge ' + badge.cls + '">' + esc(badge.text) + '</span>' +
+    '<span class="stamp-time">Live data fetched at ' + esc(fetchedAt) + '</span>';
+
+  // Board: one card per session
+  board.innerHTML = rows.map((s, i) => {
+    const st = statuses[i];
+    const places = Number(s.slots_left);
+    const soldOut = places === 0;
+    const priceHtml = s.price_eur === "CONFIRM_AT_DESK"
+      ? '<div class="price desk">Price at the desk</div>'
+      : '<div class="price">€' + esc(s.price_eur) + '</div>';
+    const placesTag = soldOut ? ""
+      : '<span class="tag' + (places <= 3 ? ' hot' : '') + '">' + (places <= 3 ? 'Only ' + places + ' left!' : places + ' left') + '</span>';
+    return '<div class="card ' + st.cls + '" data-name="' + esc(s.session) + '">' +
+      '<div class="card-top"><span class="emoji">' + (EMOJI[s.activity] || "🌊") + '</span>' +
+      '<span class="time">' + esc(s.start_time) + '</span></div>' +
+      '<div class="name">' + esc(s.session) + '</div>' +
+      priceHtml +
+      '<div class="tags">' + placesTag + '<span class="tag ' + st.cls + '">' + st.label + '</span></div>' +
+      (soldOut ? '<div class="stamp">SOLD OUT</div>' : '') +
+    '</div>';
+  }).join("");
+}
+
+// Fetches both live sources, redraws the strip and board, and hands the data back
+async function loadData() {
+  const [csvRes, weatherRes] = await Promise.all([
+    fetch(CSV_URL, { cache: "no-store" }),
+    fetch(WEATHER_URL, { cache: "no-store" })
+  ]);
+  if (!csvRes.ok) throw new Error("Could not load sessions (HTTP " + csvRes.status + ")");
+  if (!weatherRes.ok) throw new Error("Could not load weather (HTTP " + weatherRes.status + "). Try again in a moment.");
+  const csv = checkPrices(await csvRes.text());
+  const weather = (await weatherRes.json()).current;
+  const fetchedAt = new Date().toLocaleTimeString("en-IE", { hour12: false });
+  render(parseCsv(csv), weather, fetchedAt);
+  return { csv, weather, fetchedAt };
+}
+
+// Refresh on page load and every 5 minutes (places change every 5)
+async function refresh() {
+  try { await loadData(); }
+  catch (err) { strip.innerHTML = '<span class="chip">⚠️ ' + esc(err.message) + '</span>'; }
+}
+refresh();
+setInterval(refresh, 5 * 60 * 1000);
+
+// Tapping a card asks the bot about that session
+board.addEventListener("click", (event) => {
+  const card = event.target.closest(".card");
+  if (!card || sendBtn.disabled) return;
+  input.value = "Tell me about the " + card.dataset.name + " today.";
+  form.requestSubmit();
+});
 
 // Adds one chat bubble; "meta" is the optional small line underneath
 function addBubble(text, type, meta) {
@@ -122,7 +302,7 @@ function addBubble(text, type, meta) {
   return div;
 }
 
-// Runs every time Send is clicked or Enter is pressed
+// Runs every time Send is clicked, Enter is pressed or a card is tapped
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
   const question = input.value.trim();
@@ -134,16 +314,8 @@ form.addEventListener("submit", async (event) => {
   const thinking = addBubble("Thinking...", "bot");
 
   try {
-    // 1. Fetch the sessions and the weather fresh, both at once
-    const [csvRes, weatherRes] = await Promise.all([
-      fetch(CSV_URL, { cache: "no-store" }),
-      fetch(WEATHER_URL, { cache: "no-store" })
-    ]);
-    if (!csvRes.ok) throw new Error("Could not load sessions (HTTP " + csvRes.status + ")");
-    if (!weatherRes.ok) throw new Error("Could not load weather (HTTP " + weatherRes.status + "). Try again in a moment.");
-    const csv = checkPrices(await csvRes.text());
-    const weather = (await weatherRes.json()).current;
-    const fetchedAt = new Date().toLocaleTimeString("en-IE", { hour12: false });
+    // 1. Fetch both sources fresh (this also refreshes the strip and board)
+    const { csv, weather, fetchedAt } = await loadData();
 
     // 2. Send rules + data + question to the brain
     const brainRes = await fetch(BRAIN_URL, {
